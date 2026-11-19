@@ -1,6 +1,6 @@
 --[[
     Script: Inspetor de Jogadores (Design Personalizado)
-    Ajustes finais: Bordas da lista e posicionamento da câmera 3D.
+    Ajustes: Fechar ao teletransportar e idade da conta apenas com número.
 ]]
 
 local Players = game:GetService("Players")
@@ -134,7 +134,6 @@ local playerList = create("ScrollingFrame", listPage, {
     ClipsDescendants = true
 })
 
--- CORREÇÃO 1: Adicionado UIPadding para as bordas não encostarem nas laterais
 local listPadding = Instance.new("UIPadding", playerList)
 listPadding.PaddingLeft = UDim.new(0, 4)
 listPadding.PaddingRight = UDim.new(0, 4)
@@ -294,7 +293,7 @@ local teleportBtn = create("TextButton", detailPage, {
 }, 6, Color3.fromRGB(255, 255, 255), 2)
 
 -- ============================================================
--- LÓGICA DO VIEW 3D (AJUSTADA)
+-- LÓGICA DO VIEW 3D
 -- ============================================================
 local function stopPreview()
     previewToken += 1
@@ -360,17 +359,13 @@ local function startPreview(player)
         previewModel = model
         previewViewport = vp
         
-        -- CORREÇÃO 2: Câmera focada na cabeça e mais afastada
         local head = model:FindFirstChild("Head", true)
         local root = model:FindFirstChild("HumanoidRootPart", true) or head or model.PrimaryPart
         
         if root then
             local cf, size = model:GetBoundingBox()
-            
-            -- Em vez de usar o centro da bounding box, usamos a posição da cabeça/root para focar no topo
             local focusPoint = root.Position 
             
-            -- Se a cabeça existir, subimos um pouco o ponto de foco para centralizar o avatar inteiro
             if head then
                 focusPoint = head.Position - Vector3.new(0, size.Y * 0.25, 0)
             end
@@ -378,7 +373,6 @@ local function startPreview(player)
             local look = head and head.CFrame.LookVector or root.CFrame.LookVector
             if look.Magnitude == 0 then look = Vector3.new(0, 0, -1) end
             
-            -- Aumentando a distância para o modelo ficar menor
             local distance = math.max(math.max(size.Y, size.X, size.Z) * 2.8, 8) 
             
             cam.CFrame = CFrame.lookAt(focusPoint + look.Unit * distance, focusPoint)
@@ -386,7 +380,6 @@ local function startPreview(player)
         
         hoverStatus.Visible = false
         
-        -- Rotação
         local angle = 0
         previewConnection = RunService.RenderStepped:Connect(function(dt)
             if token ~= previewToken or not previewViewport then stopPreview() return end
@@ -421,7 +414,6 @@ local function updateList()
     for _, p in ipairs(players) do
         if filter == "" or p.Name:lower():find(filter) or p.DisplayName:lower():find(filter) then
             
-            -- Botão ajustado para ficar dentro da área com padding
             local btn = create("TextButton", playerList, { 
                 Size = UDim2.new(1, 0, 0, 50), 
                 BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
@@ -429,7 +421,6 @@ local function updateList()
                 ZIndex = 105 
             }, 6, Color3.fromRGB(255, 255, 255), 2)
             
-            -- DisplayName (Nome de exibição)
             create("TextLabel", btn, { 
                 Size = UDim2.new(1, -10, 0, 22), 
                 Position = UDim2.new(0, 10, 0, 4), 
@@ -442,7 +433,6 @@ local function updateList()
                 ZIndex = 106 
             })
             
-            -- Username real (@Nome)
             create("TextLabel", btn, { 
                 Size = UDim2.new(1, -10, 0, 18), 
                 Position = UDim2.new(0, 10, 0, 26), 
@@ -461,7 +451,10 @@ local function updateList()
                 nameVal.Text = p.Name
                 displayVal.Text = p.DisplayName
                 idVal.Text = tostring(p.UserId)
-                ageVal.Text = tostring(p.AccountAge) .. " dias"
+                
+                -- CORREÇÃO: Apenas o número da idade
+                ageVal.Text = tostring(p.AccountAge)
+                
                 playerNameDisplay.Text = p.DisplayName
                 
                 listPage.Visible = false
@@ -497,6 +490,7 @@ backButton.MouseButton1Click:Connect(function()
     updateList()
 end)
 
+-- CORREÇÃO: Fechar o script após teletransportar
 teleportBtn.MouseButton1Click:Connect(function()
     if currentInspectedPlayer and currentInspectedPlayer.Character then
         local targetHRP = currentInspectedPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -506,6 +500,10 @@ teleportBtn.MouseButton1Click:Connect(function()
             myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
         end
     end
+    
+    -- Fecha a interface
+    stopPreview()
+    sg:Destroy()
 end)
 
 -- Inicialização
