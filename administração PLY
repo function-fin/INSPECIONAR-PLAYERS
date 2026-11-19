@@ -1,22 +1,15 @@
---[[
-    Script: Inspetor de Jogadores (Design Personalizado)
-    Ajustes: DisplayOrder alto para ficar acima de outros menus e arrastável.
-]]
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
+local targetParent = (pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui")) or PG
 
--- ============================================================
--- CONFIGURAÇÃO DE DESIGN
--- ============================================================
 local ARCADE_FONT = Enum.Font.Arcade
 local UI_NAME = "InspetorJogadores_Design"
 
+if targetParent:FindFirstChild(UI_NAME) then targetParent[UI_NAME]:Destroy() end
 if PG:FindFirstChild(UI_NAME) then PG[UI_NAME]:Destroy() end
 
 local function create(className, parent, props, cornerRadius, strokeColor, strokeThick)
@@ -36,19 +29,18 @@ local function create(className, parent, props, cornerRadius, strokeColor, strok
     return inst
 end
 
--- CORREÇÃO: DisplayOrder alto e ZIndexBehavior Sibling para sobrepor o outro menu
-local sg = create("ScreenGui", PG, { 
+-- Prioridade alta para ficar acima do outro menu (DisplayOrder = 1) e do OpenBtn (ZIndex = 500)
+local sg = create("ScreenGui", targetParent, { 
     Name = UI_NAME, 
     ResetOnSpawn = false, 
     IgnoreGuiInset = true, 
-    DisplayOrder = 100, -- Fica acima do menu principal (que tem DisplayOrder 1)
+    DisplayOrder = 999,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling 
 })
 
--- Escala para mobile (mantida)
 local uiScale = Instance.new("UIScale", sg)
 local function updateUIScale()
-    uiScale.Scale = UserInputService.TouchEnabled and 1.0 or 1.7
+    uiScale.Scale = (UserInputService.TouchEnabled and 1.0 or 1.7) * 0.9
 end
 UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(updateUIScale)
 updateUIScale()
@@ -66,12 +58,9 @@ local main = create("Frame", sg, {
     Position = UDim2.new(0.5, -152, 0.5, -152), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     Visible = true, 
-    ZIndex = 100 
+    ZIndex = 600 
 }, 8, Color3.fromRGB(255, 255, 255), 3)
 
--- ============================================================
--- SISTEMA DE ARRASTAR (DRAG)
--- ============================================================
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -108,21 +97,18 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ============================================================
--- TELA 1: LISTA DE JOGADORES
--- ============================================================
 local listPage = create("Frame", main, { 
     Size = UDim2.new(1, 0, 1, 0), 
     BackgroundTransparency = 1, 
     Visible = true, 
-    ZIndex = 101 
+    ZIndex = 601 
 })
 
 -- Header (Título e Botão X) - Área de arrasto
 local header = create("Frame", listPage, { 
     Size = UDim2.new(1, 0, 0, 35), 
     BackgroundTransparency = 1, 
-    ZIndex = 102 
+    ZIndex = 602 
 })
 makeDraggable(header)
 
@@ -135,24 +121,22 @@ local title = create("TextLabel", header, {
     TextSize = 16, 
     TextXAlignment = Enum.TextXAlignment.Left, 
     BackgroundTransparency = 1, 
-    ZIndex = 103 
+    ZIndex = 603 
 })
 
--- Botão X (Fechar) - Imagem pura
 local closeButton = create("ImageButton", header, { 
     Size = UDim2.new(0, 28, 0, 28), 
     Position = UDim2.new(1, -40, 0, 5), 
     BackgroundTransparency = 1, 
     Image = "rbxassetid://78774633521849", 
-    ZIndex = 104 
+    ZIndex = 604 
 })
 
--- Barra de Pesquisa
 local searchContainer = create("Frame", listPage, { 
     Size = UDim2.new(1, -24, 0, 28), 
     Position = UDim2.new(0, 12, 0, 45), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
-    ZIndex = 102 
+    ZIndex = 602 
 }, 6, Color3.fromRGB(255, 255, 255), 2)
 
 local searchBox = create("TextBox", searchContainer, { 
@@ -167,17 +151,16 @@ local searchBox = create("TextBox", searchContainer, {
     TextSize = 12, 
     TextXAlignment = Enum.TextXAlignment.Center, 
     ClearTextOnFocus = false, 
-    ZIndex = 103 
+    ZIndex = 603 
 })
 
--- Lista de Jogadores
 local playerList = create("ScrollingFrame", listPage, { 
     Size = UDim2.new(1, -24, 1, -88), 
     Position = UDim2.new(0, 12, 0, 80), 
     BackgroundTransparency = 1, 
     BorderSizePixel = 0, 
     ScrollBarThickness = 0, 
-    ZIndex = 102, 
+    ZIndex = 602, 
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ClipsDescendants = true
 })
@@ -193,21 +176,18 @@ create("UIListLayout", playerList, {
     SortOrder = Enum.SortOrder.LayoutOrder 
 })
 
--- ============================================================
--- TELA 2: DETALHES DO JOGADOR
--- ============================================================
 local detailPage = create("Frame", main, { 
     Size = UDim2.new(1, 0, 1, 0), 
     BackgroundTransparency = 1, 
     Visible = false, 
-    ZIndex = 101 
+    ZIndex = 601 
 })
 
 -- Header de Detalhes - Área de arrasto
 local detailHeader = create("Frame", detailPage, { 
     Size = UDim2.new(1, 0, 0, 35), 
     BackgroundTransparency = 1, 
-    ZIndex = 102 
+    ZIndex = 602 
 })
 makeDraggable(detailHeader)
 
@@ -220,7 +200,7 @@ local detailTitle = create("TextLabel", detailHeader, {
     TextSize = 12, 
     TextXAlignment = Enum.TextXAlignment.Left, 
     BackgroundTransparency = 1, 
-    ZIndex = 103 
+    ZIndex = 603 
 })
 
 -- Botão de Voltar (Seta) - Imagem pura
@@ -229,7 +209,7 @@ local backButton = create("ImageButton", detailHeader, {
     Position = UDim2.new(1, -75, 0, 3), 
     BackgroundTransparency = 1, 
     Image = "rbxassetid://107874661558482", 
-    ZIndex = 103 
+    ZIndex = 603 
 })
 
 -- Botão X (Fechar) - Imagem pura
@@ -238,7 +218,7 @@ local closeButtonDetail = create("ImageButton", detailHeader, {
     Position = UDim2.new(1, -40, 0, 3), 
     BackgroundTransparency = 1, 
     Image = "rbxassetid://78774633521849", 
-    ZIndex = 103 
+    ZIndex = 603 
 })
 
 -- View 3D (Esquerda)
@@ -246,7 +226,7 @@ local view3DFrame = create("Frame", detailPage, {
     Size = UDim2.new(0, 136, 0, 192), 
     Position = UDim2.new(0, 12, 0, 40), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
-    ZIndex = 102 
+    ZIndex = 602 
 }, 6, Color3.fromRGB(255, 255, 255), 2)
 
 local viewportHolder = create("Frame", view3DFrame, { 
@@ -254,7 +234,7 @@ local viewportHolder = create("Frame", view3DFrame, {
     Position = UDim2.new(0, 4, 0, 4), 
     BackgroundColor3 = Color3.fromRGB(15, 15, 15), 
     ClipsDescendants = true, 
-    ZIndex = 103 
+    ZIndex = 603 
 }, 3)
 
 local hoverStatus = create("TextLabel", viewportHolder, { 
@@ -264,7 +244,7 @@ local hoverStatus = create("TextLabel", viewportHolder, {
     TextColor3 = Color3.fromRGB(150, 150, 150), 
     Font = ARCADE_FONT, 
     TextSize = 10, 
-    ZIndex = 104 
+    ZIndex = 604 
 })
 
 local playerNameDisplay = create("TextLabel", view3DFrame, { 
@@ -275,7 +255,7 @@ local playerNameDisplay = create("TextLabel", view3DFrame, {
     TextColor3 = Color3.fromRGB(255, 255, 255), 
     Font = ARCADE_FONT, 
     TextSize = 10, 
-    ZIndex = 103 
+    ZIndex = 603 
 }, 3, Color3.fromRGB(255, 255, 255), 2)
 
 -- Informações (Direita)
@@ -283,7 +263,7 @@ local infoFrame = create("Frame", detailPage, {
     Size = UDim2.new(1, -172, 0, 192), 
     Position = UDim2.new(0, 160, 0, 40), 
     BackgroundTransparency = 1, 
-    ZIndex = 102 
+    ZIndex = 602 
 })
 create("UIListLayout", infoFrame, { 
     Padding = UDim.new(0, 6), 
@@ -294,7 +274,7 @@ local function createInfoBox(labelText)
     local container = create("Frame", infoFrame, { 
         Size = UDim2.new(1, 0, 0, 40), 
         BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
-        ZIndex = 103 
+        ZIndex = 603 
     }, 4, Color3.fromRGB(255, 255, 255), 2)
     
     create("TextLabel", container, { 
@@ -306,7 +286,7 @@ local function createInfoBox(labelText)
         Font = ARCADE_FONT, 
         TextSize = 10, 
         TextXAlignment = Enum.TextXAlignment.Left, 
-        ZIndex = 104 
+        ZIndex = 604 
     })
     
     local valueLabel = create("TextLabel", container, { 
@@ -318,7 +298,7 @@ local function createInfoBox(labelText)
         Font = ARCADE_FONT, 
         TextSize = 12, 
         TextXAlignment = Enum.TextXAlignment.Left, 
-        ZIndex = 104 
+        ZIndex = 604 
     })
     return valueLabel
 end
@@ -337,12 +317,9 @@ local teleportBtn = create("TextButton", detailPage, {
     TextColor3 = Color3.fromRGB(255, 255, 255), 
     Font = ARCADE_FONT, 
     TextSize = 12, 
-    ZIndex = 105 
+    ZIndex = 605 
 }, 6, Color3.fromRGB(255, 255, 255), 2)
 
--- ============================================================
--- LÓGICA DO VIEW 3D
--- ============================================================
 local function stopPreview()
     previewToken += 1
     if previewConnection then pcall(function() previewConnection:Disconnect() end) previewConnection = nil end
@@ -352,7 +329,7 @@ end
 
 local function createViewport(parent)
     local old = parent:FindFirstChild("Preview") if old then old:Destroy() end
-    local vp = create("ViewportFrame", parent, { Name = "Preview", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 104 })
+    local vp = create("ViewportFrame", parent, { Name = "Preview", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 604 })
     local wm = create("WorldModel", vp, {})
     local cam = create("Camera", vp, { FieldOfView = 30 })
     vp.CurrentCamera = cam
@@ -437,10 +414,6 @@ local function startPreview(player)
     end)
 end
 
--- ============================================================
--- LÓGICA DE NAVEGAÇÃO E LISTA
--- ============================================================
-
 local function updateList()
     for _, v in pairs(playerList:GetChildren()) do
         if v:IsA("TextButton") then v:Destroy() end
@@ -466,7 +439,7 @@ local function updateList()
                 Size = UDim2.new(1, 0, 0, 38), 
                 BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
                 Text = "", 
-                ZIndex = 105 
+                ZIndex = 605 
             }, 6, Color3.fromRGB(255, 255, 255), 2)
             
             create("TextLabel", btn, { 
@@ -478,7 +451,7 @@ local function updateList()
                 Font = ARCADE_FONT, 
                 TextSize = 12, 
                 TextXAlignment = Enum.TextXAlignment.Left, 
-                ZIndex = 106 
+                ZIndex = 606 
             })
             
             create("TextLabel", btn, { 
@@ -490,7 +463,7 @@ local function updateList()
                 Font = ARCADE_FONT, 
                 TextSize = 10, 
                 TextXAlignment = Enum.TextXAlignment.Left, 
-                ZIndex = 106 
+                ZIndex = 606 
             })
             
             btn.MouseButton1Click:Connect(function()
@@ -510,10 +483,6 @@ local function updateList()
         end
     end
 end
-
--- ============================================================
--- CONEXÕES
--- ============================================================
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateList)
 
@@ -549,5 +518,4 @@ teleportBtn.MouseButton1Click:Connect(function()
     sg:Destroy()
 end)
 
--- Inicialização
 updateList()
