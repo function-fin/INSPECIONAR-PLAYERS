@@ -1,3 +1,12 @@
+--[[
+    Script: Inspetor de Jogadores (Design Personalizado)
+    Ajustes: DisplayOrder alto (999), mesmo targetParent (CoreGui/PlayerGui),
+             arrastável, escala reduzida, Aba 1 no estilo do modelo com
+             borda cinza escuro (padrão) -> branca (ao selecionar),
+             margem ajustada nos botões, skin 3D 10% maior no viewport
+             e botão X sem borda.
+]]
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -6,8 +15,18 @@ local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
 local targetParent = (pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui")) or PG
 
+-- ============================================================
+-- CONFIGURAÇÃO DE DESIGN
+-- ============================================================
 local ARCADE_FONT = Enum.Font.Arcade
 local UI_NAME = "InspetorJogadores_Design"
+
+local BORDER_UNSELECTED = Color3.fromRGB(65, 65, 65)
+local BORDER_SELECTED = Color3.fromRGB(255, 255, 255)
+local TEXT_MUTED = Color3.fromRGB(120, 120, 120)
+local TEXT_SUB_MUTED = Color3.fromRGB(85, 85, 85)
+local TEXT_BRIGHT = Color3.fromRGB(255, 255, 255)
+local TEXT_SUB_BRIGHT = Color3.fromRGB(190, 190, 190)
 
 if targetParent:FindFirstChild(UI_NAME) then targetParent[UI_NAME]:Destroy() end
 if PG:FindFirstChild(UI_NAME) then PG[UI_NAME]:Destroy() end
@@ -19,14 +38,15 @@ local function create(className, parent, props, cornerRadius, strokeColor, strok
         local corner = Instance.new("UICorner", inst)
         corner.CornerRadius = UDim.new(0, cornerRadius) 
     end
+    local stroke
     if strokeColor then 
-        local s = Instance.new("UIStroke", inst)
-        s.Color = strokeColor
-        s.Thickness = strokeThick or 1
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke = Instance.new("UIStroke", inst)
+        stroke.Color = strokeColor
+        stroke.Thickness = strokeThick or 1
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     end
     inst.Parent = parent 
-    return inst
+    return inst, stroke
 end
 
 -- Prioridade alta para ficar acima do outro menu (DisplayOrder = 1) e do OpenBtn (ZIndex = 500)
@@ -38,6 +58,7 @@ local sg = create("ScreenGui", targetParent, {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling 
 })
 
+-- Escala reduzida em 10% (0.9x) para mobile e PC
 local uiScale = Instance.new("UIScale", sg)
 local function updateUIScale()
     uiScale.Scale = (UserInputService.TouchEnabled and 1.0 or 1.7) * 0.9
@@ -47,20 +68,24 @@ updateUIScale()
 
 -- Variáveis de Estado
 local currentInspectedPlayer = nil
+local selectedUserId = nil
 local previewConnection = nil
 local previewModel = nil
 local previewViewport = nil
 local previewToken = 0
 
--- Frame Principal (Reduzido em 20%: 380 * 0.8 = 304)
+-- Frame Principal (304x304)
 local main = create("Frame", sg, { 
     Size = UDim2.new(0, 304, 0, 304), 
     Position = UDim2.new(0.5, -152, 0.5, -152), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     Visible = true, 
     ZIndex = 600 
-}, 8, Color3.fromRGB(255, 255, 255), 3)
+}, 8, BORDER_SELECTED, 3)
 
+-- ============================================================
+-- SISTEMA DE ARRASTAR (DRAG)
+-- ============================================================
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -97,6 +122,9 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- ============================================================
+-- TELA 1: LISTA DE JOGADORES (MODELO LIMPO E ESPAÇOSO)
+-- ============================================================
 local listPage = create("Frame", main, { 
     Size = UDim2.new(1, 0, 1, 0), 
     BackgroundTransparency = 1, 
@@ -106,38 +134,41 @@ local listPage = create("Frame", main, {
 
 -- Header (Título e Botão X) - Área de arrasto
 local header = create("Frame", listPage, { 
-    Size = UDim2.new(1, 0, 0, 35), 
+    Size = UDim2.new(1, 0, 0, 44), 
     BackgroundTransparency = 1, 
     ZIndex = 602 
 })
 makeDraggable(header)
 
 local title = create("TextLabel", header, { 
-    Size = UDim2.new(1, -60, 0, 25), 
-    Position = UDim2.new(0, 12, 0, 5), 
+    Size = UDim2.new(1, -66, 1, 0), 
+    Position = UDim2.new(0, 14, 0, 2), 
     Text = "INSPECIONAR JOGADORES", 
-    TextColor3 = Color3.fromRGB(255, 255, 255), 
+    TextColor3 = TEXT_BRIGHT, 
     Font = ARCADE_FONT, 
     TextSize = 16, 
     TextXAlignment = Enum.TextXAlignment.Left, 
+    TextYAlignment = Enum.TextYAlignment.Center,
     BackgroundTransparency = 1, 
     ZIndex = 603 
 })
 
+-- Botão X (Fechar) - Imagem pura sem borda
 local closeButton = create("ImageButton", header, { 
     Size = UDim2.new(0, 28, 0, 28), 
-    Position = UDim2.new(1, -40, 0, 5), 
+    Position = UDim2.new(1, -42, 0.5, -12), 
     BackgroundTransparency = 1, 
     Image = "rbxassetid://78774633521849", 
     ZIndex = 604 
 })
 
+-- Barra de Pesquisa
 local searchContainer = create("Frame", listPage, { 
-    Size = UDim2.new(1, -24, 0, 28), 
-    Position = UDim2.new(0, 12, 0, 45), 
+    Size = UDim2.new(1, -28, 0, 30), 
+    Position = UDim2.new(0, 14, 0, 48), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     ZIndex = 602 
-}, 6, Color3.fromRGB(255, 255, 255), 2)
+}, 5, BORDER_SELECTED, 2)
 
 local searchBox = create("TextBox", searchContainer, { 
     Size = UDim2.new(1, -16, 1, 0), 
@@ -145,37 +176,43 @@ local searchBox = create("TextBox", searchContainer, {
     BackgroundTransparency = 1, 
     Text = "", 
     PlaceholderText = "Pesquisar Players", 
-    TextColor3 = Color3.fromRGB(255, 255, 255), 
-    PlaceholderColor3 = Color3.fromRGB(180, 180, 180), 
+    TextColor3 = TEXT_BRIGHT, 
+    PlaceholderColor3 = Color3.fromRGB(210, 210, 210), 
     Font = ARCADE_FONT, 
-    TextSize = 12, 
+    TextSize = 13, 
     TextXAlignment = Enum.TextXAlignment.Center, 
     ClearTextOnFocus = false, 
     ZIndex = 603 
 })
 
+-- Lista de Jogadores (Com margem segura para não encostar nas bordas do MainFrame)
 local playerList = create("ScrollingFrame", listPage, { 
-    Size = UDim2.new(1, -24, 1, -88), 
-    Position = UDim2.new(0, 12, 0, 80), 
+    Size = UDim2.new(1, -24, 1, -96), 
+    Position = UDim2.new(0, 12, 0, 86), 
     BackgroundTransparency = 1, 
     BorderSizePixel = 0, 
-    ScrollBarThickness = 0, 
+    ScrollBarThickness = 2, 
+    ScrollBarImageColor3 = Color3.fromRGB(120, 120, 120),
     ZIndex = 602, 
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
     ClipsDescendants = true
 })
 
 local listPadding = Instance.new("UIPadding", playerList)
-listPadding.PaddingLeft = UDim.new(0, 3)
-listPadding.PaddingRight = UDim.new(0, 3)
+listPadding.PaddingLeft = UDim.new(0, 4)
+listPadding.PaddingRight = UDim.new(0, 8)
 listPadding.PaddingTop = UDim.new(0, 3)
-listPadding.PaddingBottom = UDim.new(0, 3)
+listPadding.PaddingBottom = UDim.new(0, 8)
 
 create("UIListLayout", playerList, { 
     Padding = UDim.new(0, 8), 
     SortOrder = Enum.SortOrder.LayoutOrder 
 })
 
+-- ============================================================
+-- TELA 2: DETALHES DO JOGADOR
+-- ============================================================
 local detailPage = create("Frame", main, { 
     Size = UDim2.new(1, 0, 1, 0), 
     BackgroundTransparency = 1, 
@@ -195,7 +232,7 @@ local detailTitle = create("TextLabel", detailHeader, {
     Size = UDim2.new(1, -80, 1, 0), 
     Position = UDim2.new(0, 12, 0, 0), 
     Text = "3D Visualization Mode", 
-    TextColor3 = Color3.fromRGB(255, 255, 255), 
+    TextColor3 = TEXT_BRIGHT, 
     Font = ARCADE_FONT, 
     TextSize = 12, 
     TextXAlignment = Enum.TextXAlignment.Left, 
@@ -227,7 +264,7 @@ local view3DFrame = create("Frame", detailPage, {
     Position = UDim2.new(0, 12, 0, 40), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     ZIndex = 602 
-}, 6, Color3.fromRGB(255, 255, 255), 2)
+}, 6, BORDER_SELECTED, 2)
 
 local viewportHolder = create("Frame", view3DFrame, { 
     Size = UDim2.new(1, -8, 1, -30), 
@@ -252,11 +289,11 @@ local playerNameDisplay = create("TextLabel", view3DFrame, {
     Position = UDim2.new(0, 4, 1, -26), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     Text = "Nome", 
-    TextColor3 = Color3.fromRGB(255, 255, 255), 
+    TextColor3 = TEXT_BRIGHT, 
     Font = ARCADE_FONT, 
     TextSize = 10, 
     ZIndex = 603 
-}, 3, Color3.fromRGB(255, 255, 255), 2)
+}, 3, BORDER_SELECTED, 2)
 
 -- Informações (Direita)
 local infoFrame = create("Frame", detailPage, { 
@@ -275,14 +312,14 @@ local function createInfoBox(labelText)
         Size = UDim2.new(1, 0, 0, 40), 
         BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
         ZIndex = 603 
-    }, 4, Color3.fromRGB(255, 255, 255), 2)
+    }, 4, BORDER_SELECTED, 2)
     
     create("TextLabel", container, { 
         Size = UDim2.new(1, -8, 0, 12), 
         Position = UDim2.new(0, 4, 0, 1), 
         BackgroundTransparency = 1, 
         Text = labelText, 
-        TextColor3 = Color3.fromRGB(255, 255, 255), 
+        TextColor3 = TEXT_BRIGHT, 
         Font = ARCADE_FONT, 
         TextSize = 10, 
         TextXAlignment = Enum.TextXAlignment.Left, 
@@ -294,7 +331,7 @@ local function createInfoBox(labelText)
         Position = UDim2.new(0, 4, 0, 14), 
         BackgroundTransparency = 1, 
         Text = "-", 
-        TextColor3 = Color3.fromRGB(255, 255, 255), 
+        TextColor3 = TEXT_BRIGHT, 
         Font = ARCADE_FONT, 
         TextSize = 12, 
         TextXAlignment = Enum.TextXAlignment.Left, 
@@ -314,12 +351,15 @@ local teleportBtn = create("TextButton", detailPage, {
     Position = UDim2.new(0, 12, 1, -44), 
     BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
     Text = "Teletransporte No alvo", 
-    TextColor3 = Color3.fromRGB(255, 255, 255), 
+    TextColor3 = TEXT_BRIGHT, 
     Font = ARCADE_FONT, 
     TextSize = 12, 
     ZIndex = 605 
-}, 6, Color3.fromRGB(255, 255, 255), 2)
+}, 6, BORDER_SELECTED, 2)
 
+-- ============================================================
+-- LÓGICA DO VIEW 3D
+-- ============================================================
 local function stopPreview()
     previewToken += 1
     if previewConnection then pcall(function() previewConnection:Disconnect() end) previewConnection = nil end
@@ -398,7 +438,8 @@ local function startPreview(player)
             local look = head and head.CFrame.LookVector or root.CFrame.LookVector
             if look.Magnitude == 0 then look = Vector3.new(0, 0, -1) end
             
-            local distance = math.max(math.max(size.Y, size.X, size.Z) * 2.8, 8) 
+            -- Aproxima a câmera em 10% para deixar a skin maior no espaço do viewport
+            local distance = math.max(math.max(size.Y, size.X, size.Z) * 2.8, 8) * 0.9
             
             cam.CFrame = CFrame.lookAt(focusPoint + look.Unit * distance, focusPoint)
         end
@@ -412,6 +453,17 @@ local function startPreview(player)
             pcall(function() model:PivotTo(CFrame.Angles(0, angle, 0)) end)
         end)
     end)
+end
+
+-- ============================================================
+-- LÓGICA DE NAVEGAÇÃO E LISTA
+-- ============================================================
+
+local function applyCardSelectionVisual(stroke, displayLbl, userLbl, isSelected)
+    stroke.Color = isSelected and BORDER_SELECTED or BORDER_UNSELECTED
+    stroke.Thickness = isSelected and 2.5 or 2
+    displayLbl.TextColor3 = isSelected and TEXT_BRIGHT or TEXT_MUTED
+    userLbl.TextColor3 = isSelected and TEXT_SUB_BRIGHT or TEXT_SUB_MUTED
 end
 
 local function updateList()
@@ -434,40 +486,54 @@ local function updateList()
     
     for _, p in ipairs(players) do
         if filter == "" or p.Name:lower():find(filter) or p.DisplayName:lower():find(filter) then
+            local isSelected = (selectedUserId == p.UserId)
             
-            local btn = create("TextButton", playerList, { 
-                Size = UDim2.new(1, 0, 0, 38), 
+            local btn, btnStroke = create("TextButton", playerList, { 
+                Size = UDim2.new(1, -4, 0, 46), 
                 BackgroundColor3 = Color3.fromRGB(0, 0, 0), 
+                AutoButtonColor = false,
                 Text = "", 
                 ZIndex = 605 
-            }, 6, Color3.fromRGB(255, 255, 255), 2)
+            }, 6, isSelected and BORDER_SELECTED or BORDER_UNSELECTED, isSelected and 2.5 or 2)
             
-            create("TextLabel", btn, { 
-                Size = UDim2.new(1, -8, 0, 18), 
-                Position = UDim2.new(0, 6, 0, 3), 
+            local displayLbl = create("TextLabel", btn, { 
+                Size = UDim2.new(1, -18, 0, 19), 
+                Position = UDim2.new(0, 10, 0, 5), 
                 BackgroundTransparency = 1, 
                 Text = p.DisplayName, 
-                TextColor3 = Color3.fromRGB(255, 255, 255), 
+                TextColor3 = isSelected and TEXT_BRIGHT or TEXT_MUTED, 
                 Font = ARCADE_FONT, 
-                TextSize = 12, 
+                TextSize = 14, 
                 TextXAlignment = Enum.TextXAlignment.Left, 
+                TextTruncate = Enum.TextTruncate.AtEnd,
                 ZIndex = 606 
             })
             
-            create("TextLabel", btn, { 
-                Size = UDim2.new(1, -8, 0, 14), 
-                Position = UDim2.new(0, 6, 0, 20), 
+            local userLbl = create("TextLabel", btn, { 
+                Size = UDim2.new(1, -18, 0, 15), 
+                Position = UDim2.new(0, 10, 0, 24), 
                 BackgroundTransparency = 1, 
                 Text = "@" .. p.Name, 
-                TextColor3 = Color3.fromRGB(180, 180, 180), 
+                TextColor3 = isSelected and TEXT_SUB_BRIGHT or TEXT_SUB_MUTED, 
                 Font = ARCADE_FONT, 
-                TextSize = 10, 
+                TextSize = 11, 
                 TextXAlignment = Enum.TextXAlignment.Left, 
+                TextTruncate = Enum.TextTruncate.AtEnd,
                 ZIndex = 606 
             })
+
+            btn.MouseEnter:Connect(function()
+                applyCardSelectionVisual(btnStroke, displayLbl, userLbl, true)
+            end)
+
+            btn.MouseLeave:Connect(function()
+                applyCardSelectionVisual(btnStroke, displayLbl, userLbl, selectedUserId == p.UserId)
+            end)
             
             btn.MouseButton1Click:Connect(function()
+                selectedUserId = p.UserId
                 currentInspectedPlayer = p
+                applyCardSelectionVisual(btnStroke, displayLbl, userLbl, true)
                 
                 nameVal.Text = p.Name
                 displayVal.Text = p.DisplayName
@@ -475,14 +541,20 @@ local function updateList()
                 ageVal.Text = tostring(p.AccountAge)
                 playerNameDisplay.Text = p.DisplayName
                 
-                listPage.Visible = false
-                detailPage.Visible = true
-                
-                startPreview(p)
+                task.delay(0.08, function()
+                    if not sg or not sg.Parent then return end
+                    listPage.Visible = false
+                    detailPage.Visible = true
+                    startPreview(p)
+                end)
             end)
         end
     end
 end
+
+-- ============================================================
+-- CONEXÕES
+-- ============================================================
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateList)
 
@@ -518,4 +590,5 @@ teleportBtn.MouseButton1Click:Connect(function()
     sg:Destroy()
 end)
 
+-- Inicialização
 updateList()
