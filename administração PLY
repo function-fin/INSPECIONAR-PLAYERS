@@ -1,6 +1,6 @@
 --[[
     Script: Inspetor de Jogadores (Design Personalizado)
-    Ajustes: Tamanho reduzido em 20% e interface arrastável.
+    Ajustes: DisplayOrder alto para ficar acima de outros menus e arrastável.
 ]]
 
 local Players = game:GetService("Players")
@@ -36,14 +36,16 @@ local function create(className, parent, props, cornerRadius, strokeColor, strok
     return inst
 end
 
+-- CORREÇÃO: DisplayOrder alto e ZIndexBehavior Sibling para sobrepor o outro menu
 local sg = create("ScreenGui", PG, { 
     Name = UI_NAME, 
     ResetOnSpawn = false, 
     IgnoreGuiInset = true, 
-    DisplayOrder = 999 
+    DisplayOrder = 100, -- Fica acima do menu principal (que tem DisplayOrder 1)
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling 
 })
 
--- Escala para mobile
+-- Escala para mobile (mantida)
 local uiScale = Instance.new("UIScale", sg)
 local function updateUIScale()
     uiScale.Scale = UserInputService.TouchEnabled and 1.0 or 1.7
